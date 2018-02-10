@@ -5,21 +5,85 @@ output:
     keep_md: true
 ---
 
+```{r message=FALSE, warning=FALSE}
+
+library(ggplot2)
+library(dplyr)
+library(plyr)
+
+```
 
 ## Loading and preprocessing the data
+```{r}
+activity.data <- read.csv("activity.csv",header = TRUE, na.strings = "NA")
 
+
+```
 
 
 ## What is mean total number of steps taken per day?
 
+### Calculate the mean and median of total number of steps taken per day
+```{r}
+
+sum.steps <- ddply(activity.data,.(date),summarize,steps=sum(steps))
+hist(sum.steps$steps,main ="Frequency of steps",xlab = "Steps")
+
+mean.data <- ddply(activity.data,.(date),summarize,steps=mean(steps))
+mean.data
+
+median.data <- ddply(activity.data,.(date),summarize,steps=median(steps))
+median.data
+```
 
 
 ## What is the average daily activity pattern?
+###Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+
+```{r}
+mean.data<-aggregate(steps ~ interval,data=activity.data,FUN=mean,na.rm=TRUE)
 
 
+ggplot(mean.data,aes(interval,steps))+geom_line()+xlab("5-Minute Intervals")+ylab("Average Number of Steps per Interval")
+
+```
+
+###Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+```{r}
+mean.data[which.max(mean.data$steps),][1]
+
+```
 
 ## Imputing missing values
+###Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
 
+```{r}
+total.NAs <- sum(is.na(activity.data$steps))
+```
 
+Total number of rows with NAs = `r total.NAs`
+
+###Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
+
+####Simple approach here is to use average number of steps for the interval that is missing
+
+```{r}
+new.activity.data <- activity.data
+new.activity.data[is.na(new.activity.data$steps) == TRUE,]$steps =mean.data$steps[match(mean.data$interval,new.activity.data$interval)]
+
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r}
+new.activity.data$weekend <- weekdays.Date(as.Date(new.activity.data$date))%in%c("Saturday","Sunday")
+new.activity.data$daytype <- as.factor(ifelse(new.activity.data$weekend == TRUE,"Weekend","Weekday"))
+
+stepsbyInterval <- ddply(new.activity.data,.(interval,daytype),summarize,total=sum(steps))
+
+ggplot(stepsbyInterval, aes(x=interval, y=total, group=daytype, colour=daytype)) +
+   geom_line() + geom_point() +
+   facet_grid(daytype ~ ., scales="free_y")
+
+
+```
